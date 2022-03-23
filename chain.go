@@ -769,9 +769,40 @@ func (c *Client) GetTxOut(txHash *chainhash.Hash, index uint32, mempool bool) (*
 //
 // NOTE: This is a btcsuite extension ported from
 // github.com/decred/dcrrpcclient.
+func (c *Client) RescanBlocks(blockHashes []chainhash.Hash) ([]btcjson.RescannedBlock, error) {
+	return c.RescanBlocksAsync(blockHashes).Receive()
+}
+
+// FutureInvalidateBlockResult is a future promise to deliver the result of a
+// InvalidateBlockAsync RPC invocation (or an applicable error).
 type FutureRescanBlocksResult chan *response
 
-// Receive waits for the response promised by the future and returns the
+// Receive waits for the response promised by the future and returns the raw
+// block requested from the server given its hash.
+func (r FutureInvalidateBlockResult) Receive() error {
+	_, err := receiveFuture(r)
+
+	return err
+}
+
+// InvalidateBlockAsync returns an instance of a type that can be used to get the
+// result of the RPC at some future time by invoking the Receive function on the
+// returned instance.
+//
+// See InvalidateBlock for the blocking version and more details.
+func (c *Client) InvalidateBlockAsync(blockHash *chainhash.Hash) FutureInvalidateBlockResult {
+	hash := ""
+	if blockHash != nil {
+		hash = blockHash.String()
+	}
+
+	cmd := btcjson.NewInvalidateBlockCmd(hash)
+	return c.sendCmd(cmd)
+}
+
+// InvalidateBlock invalidates a specific block.
+func (c *Client) InvalidateBlock(blockHash *chainhash.Hash) error {
+	return c.InvalidateBlockAsync(blockHash).Receive()
 // discovered rescanblocks data.
 //
 // NOTE: This is a btcsuite extension ported from
